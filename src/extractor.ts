@@ -158,9 +158,25 @@ function extractResponseSchema(
     const response = responses[code];
     if (!response || isReferenceObject(response)) continue;
 
-    const jsonContent = (response as ResponseObject).content?.['application/json'];
+    const content = (response as ResponseObject).content;
+    if (!content) continue;
+
+    // Check for JSON content first
+    const jsonContent = content['application/json'];
     if (jsonContent?.schema) {
       return jsonContent.schema as SchemaObject | ReferenceObject;
+    }
+
+    // Check for SSE content
+    const sseContent = content['text/event-stream'];
+    if (sseContent?.schema) {
+      return sseContent.schema as SchemaObject | ReferenceObject;
+    }
+
+    // Check for NDJSON content
+    const ndjsonContent = content['application/x-ndjson'];
+    if (ndjsonContent?.schema) {
+      return ndjsonContent.schema as SchemaObject | ReferenceObject;
     }
   }
 

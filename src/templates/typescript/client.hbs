@@ -13,9 +13,11 @@ export interface {{clientName}}Config {
 
 export class {{clientName}} {
   private client: AxiosInstance;
+  private baseUrl: string;
   private token?: string;
 
   constructor(config: {{clientName}}Config) {
+    this.baseUrl = config.baseUrl.replace(/\/$/, '');
     this.token = config.token;
     this.client = axios.create({
       baseURL: config.baseUrl,
@@ -77,5 +79,138 @@ export class {{clientName}} {
   }
 
 {{/unless}}
+{{/each}}
+{{#each operations}}
+{{#if isStreaming}}
+  {{#if summary}}
+  /** {{summary}} */
+  {{/if}}
+  async *{{operationId}}({{#if hasParams}}params: {
+{{#each pathParameters}}
+    {{name}}: {{{tsType}}};
+{{/each}}
+{{#each queryParameters}}
+    {{name}}{{#unless required}}?{{/unless}}: {{{tsType}}};
+{{/each}}
+  }, {{/if}}signal?: AbortSignal): AsyncIterable<{{{responseType}}}> {
+    let url = '{{path}}';
+{{#each pathParameters}}
+    url = url.replace('{' + '{{name}}' + '}', encodeURIComponent(String(params.{{name}})));
+{{/each}}
+{{#if hasQueryParams}}
+
+    const queryParams = new URLSearchParams();
+{{#each queryParameters}}
+    if (params.{{name}} !== undefined) queryParams.set('{{name}}', String(params.{{name}}));
+{{/each}}
+    const queryString = queryParams.toString();
+    if (queryString) url += '?' + queryString;
+{{/if}}
+
+    const headers: Record<string, string> = {
+      'Accept': '{{#if isSse}}text/event-stream{{else}}application/x-ndjson{{/if}}',
+    };
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(this.baseUrl + url, {
+      method: '{{method}}',
+      headers,
+      signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    if (!response.body) {
+      throw new Error('Response body is null');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+{{#if isSse}}
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+
+        for (const event of events) {
+          if (!event.trim()) continue;
+          
+          const lines = event.split('\n');
+          let data = '';
+          
+          for (const line of lines) {
+            if (line.startsWith('data:')) {
+              data += line.slice(5).trim();
+            }
+          }
+          
+          if (data) {
+            const parsed = JSON.parse(data) as {{{responseType}}};
+{{#if hasResponseSchema}}
+            yield {{responseSchemaName}}Schema.parse(parsed);
+{{else}}
+            yield parsed;
+{{/if}}
+          }
+        }
+{{else}}
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const parsed = JSON.parse(line) as {{{responseType}}};
+{{#if hasResponseSchema}}
+          yield {{responseSchemaName}}Schema.parse(parsed);
+{{else}}
+          yield parsed;
+{{/if}}
+        }
+{{/if}}
+      }
+
+      if (buffer.trim()) {
+{{#if isSse}}
+        const lines = buffer.split('\n');
+        let data = '';
+        for (const line of lines) {
+          if (line.startsWith('data:')) {
+            data += line.slice(5).trim();
+          }
+        }
+        if (data) {
+          const parsed = JSON.parse(data) as {{{responseType}}};
+{{#if hasResponseSchema}}
+          yield {{responseSchemaName}}Schema.parse(parsed);
+{{else}}
+          yield parsed;
+{{/if}}
+        }
+{{else}}
+        const parsed = JSON.parse(buffer) as {{{responseType}}};
+{{#if hasResponseSchema}}
+        yield {{responseSchemaName}}Schema.parse(parsed);
+{{else}}
+        yield parsed;
+{{/if}}
+{{/if}}
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
+{{/if}}
 {{/each}}
 }

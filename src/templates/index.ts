@@ -146,6 +146,7 @@ export interface TemplateOperation {
   hasResponseSchema: boolean;
   isStreaming: boolean;
   streamingType?: 'sse' | 'ndjson';
+  isSse: boolean;
 }
 
 export function prepareSchemas(schemas: ExtractedSchema[]): TemplateSchema[] {
@@ -224,6 +225,7 @@ export function prepareOperations(operations: ExtractedOperation[], schemaNames:
       hasResponseSchema,
       isStreaming: op.isStreaming,
       streamingType: op.streamingType,
+      isSse: op.streamingType === 'sse',
     };
   });
 }
