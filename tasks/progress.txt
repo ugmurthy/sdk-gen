@@ -5,6 +5,7 @@
 - Run `npm run build` to compile to `dist/`
 - `openapi-types` package provides TypeScript types for OpenAPI specs
 - SwaggerParser.validate() parses and validates in one step
+- `src/extractor.ts` extracts operations/schemas via `extractAll(spec)`
 
 ---
 
@@ -26,4 +27,15 @@ Thread: https://ampcode.com/threads/T-019c050f-ef5c-71cb-9c77-3ac0022ede44
   - swagger-parser returns typed OpenAPI.Document, cast to OpenAPIV3/V3_1
   - Test fixtures in `test-fixtures/` directory for manual testing
   - Error handling wraps swagger-parser errors with user-friendly messages
+---
+
+## 2026-01-28 - US-003
+Thread: https://ampcode.com/threads/T-019c050f-ef5c-71cb-9c77-3ac0022ede44
+- Implemented extractor module for operations and schemas
+- Files changed: src/extractor.ts, src/cli.ts, test-fixtures/streaming.yaml
+- **Learnings for future iterations:**
+  - `extractAll()` returns { operations, schemas } from OpenAPISpec
+  - Operations derive operationId from method+path if not provided
+  - Streaming detection via content types: text/event-stream (SSE), application/x-ndjson (NDJSON)
+  - ExtractedOperation includes pathParameters, queryParameters, requestBody, responseSchema, isStreaming
 ---
