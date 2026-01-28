@@ -1,0 +1,17 @@
+## Codebase Patterns
+- Use ESM modules (`"type": "module"` in package.json)
+- CLI entry point is `src/cli.ts` using Commander.js
+- Run `npm run typecheck` to verify TypeScript types
+- Run `npm run build` to compile to `dist/`
+
+---
+
+## 2026-01-28 - US-001
+Thread: https://ampcode.com/threads/T-019c050f-ef5c-71cb-9c77-3ac0022ede44
+- Implemented project setup and CLI scaffold
+- Files changed: package.json, tsconfig.json, src/cli.ts, .gitignore
+- **Learnings for future iterations:**
+  - Commander.js `requiredOption()` enforces mandatory flags
+  - Use `fileURLToPath` for ESM `__dirname` equivalent
+  - Project uses NodeNext module resolution
+---
