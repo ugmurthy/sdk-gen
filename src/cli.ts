@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { createInterface } from 'readline';
 import { parseOpenAPISpec } from './parser.js';
 import { extractAll } from './extractor.js';
-import { renderInterfaces, renderZodSchemas, renderClient } from './templates/index.js';
+import { generateTypeScriptSDK, writeGeneratedFiles } from './generator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,7 +26,8 @@ program
   .requiredOption('--output <dir>', 'Output directory for generated SDK')
   .option('--package', 'Generate as publishable package')
   .option('--name <name>', 'Package name (required with --package)')
-  .action(async (specFile: string, options: { lang: string; output: string; package?: boolean; name?: string }) => {
+  .option('--force', 'Overwrite existing files without prompting')
+  .action(async (specFile: string, options: { lang: string; output: string; package?: boolean; name?: string; force?: boolean }) => {
     if (options.lang !== 'ts' && options.lang !== 'python') {
       console.error('Error: --lang must be either "ts" or "python"');
       process.exit(1);
@@ -48,15 +50,30 @@ program
         console.log(`Detected ${streamingOps.length} streaming endpoint(s)`);
       }
 
-      console.log(`Generating ${options.lang} SDK to ${options.output}`);
+      const outputDir = resolve(options.output);
+      console.log(`Generating ${options.lang} SDK to ${outputDir}`);
 
       if (options.lang === 'ts') {
-        const interfaces = renderInterfaces(extracted.schemas);
-        const zodSchemas = renderZodSchemas(extracted.schemas);
-        const client = renderClient(extracted.operations, extracted.schemas);
-        console.log('\n--- Generated Interfaces ---\n', interfaces);
-        console.log('\n--- Generated Zod Schemas ---\n', zodSchemas);
-        console.log('\n--- Generated Client ---\n', client);
+        const files = generateTypeScriptSDK(extracted);
+
+        const existingFiles = files.filter(f => existsSync(join(outputDir, f.path)));
+        
+        if (existingFiles.length > 0 && !options.force) {
+          console.log(`\nThe following files already exist:`);
+          existingFiles.forEach(f => console.log(`  - ${f.path}`));
+          
+          const shouldOverwrite = await promptConfirmation('Overwrite existing files? (y/n): ');
+          if (!shouldOverwrite) {
+            console.log('Aborted.');
+            process.exit(0);
+          }
+        }
+
+        writeGeneratedFiles(files, outputDir, options.force || existingFiles.length > 0);
+        console.log(`\nSuccessfully generated TypeScript SDK in ${outputDir}`);
+      } else {
+        console.error('Python generation not yet implemented');
+        process.exit(1);
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -67,5 +84,19 @@ program
       process.exit(1);
     }
   });
+
+async function promptConfirmation(question: string): Promise<boolean> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
+}
 
 program.parse();
