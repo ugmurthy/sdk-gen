@@ -1,0 +1,28 @@
+{
+  "name": "sdk-gen",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "sdk-gen": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/cli.js"
+  },
+  "keywords": ["openapi", "sdk", "codegen", "typescript", "python"],
+  "author": "",
+  "license": "ISC",
+  "description": "CLI tool that generates fully-typed SDK clients from OpenAPI specifications",
+  "dependencies": {
+    "@apidevtools/swagger-parser": "^12.1.0",
+    "commander": "^14.0.2",
+    "handlebars": "^4.7.8",
+    "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.10",
+    "typescript": "^5.9.3"
+  }
+}

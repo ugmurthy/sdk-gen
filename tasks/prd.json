@@ -1,0 +1,199 @@
+{
+  "project": "SDK Client Generator",
+  "branchName": "ralph/sdk-client-generator",
+  "description": "CLI tool that generates fully-typed SDK clients in JavaScript/TypeScript and Python from OpenAPI 3.0/3.1 specification files",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Project setup and CLI scaffold",
+      "description": "As a developer, I want the basic project structure and CLI entry point so I can run the tool.",
+      "acceptanceCriteria": [
+        "Initialize Node.js project with TypeScript",
+        "Add dependencies: commander, @apidevtools/swagger-parser, handlebars, yaml",
+        "Create CLI entry point with --help and --version flags",
+        "Command structure: sdk-gen <spec-file> --lang <ts|python> --output <dir>",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Parse and validate OpenAPI specification",
+      "description": "As a developer, I want to provide an OpenAPI JSON or YAML file so that the tool can understand my API structure.",
+      "acceptanceCriteria": [
+        "Accept file path as CLI argument",
+        "Support .json, .yaml, and .yml extensions",
+        "Validate against OpenAPI 3.0 and 3.1 schemas using swagger-parser",
+        "Display clear error messages for invalid specs with details",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Extract operations and schemas from OpenAPI spec",
+      "description": "As a developer, I need parsed operation data to generate SDK methods.",
+      "acceptanceCriteria": [
+        "Extract all operations with operationId or derive name from path+method",
+        "Extract path parameters from URL patterns (e.g., /users/{id})",
+        "Extract query parameters with types and required flags",
+        "Extract request body schemas for application/json",
+        "Extract response schemas for 2xx status codes",
+        "Detect streaming endpoints via text/event-stream and application/x-ndjson content types",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create TypeScript code generation templates",
+      "description": "As a developer, I need Handlebars templates for generating TypeScript SDK code.",
+      "acceptanceCriteria": [
+        "Create template for TypeScript interfaces from OpenAPI schemas",
+        "Create template for Zod schemas for runtime validation",
+        "Create template for client class with constructor accepting baseUrl and token",
+        "Create template for API methods with typed parameters and return types",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Generate TypeScript SDK client",
+      "description": "As a developer, I want to generate a TypeScript SDK so I can consume my API with full type safety.",
+      "acceptanceCriteria": [
+        "Generate one client class with methods for each API operation",
+        "Generate TypeScript interfaces for all request/response schemas",
+        "Generate Zod schemas for runtime validation",
+        "Use Axios as HTTP client",
+        "Support Bearer token auth via constructor config with token update method",
+        "Handle path parameter interpolation into URL",
+        "Handle query parameters as optional method arguments",
+        "Typecheck passes on generated code"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Generate TypeScript streaming methods",
+      "description": "As a developer, I want TypeScript SDK to support SSE and NDJSON streaming endpoints.",
+      "acceptanceCriteria": [
+        "Generate async iterator methods for SSE endpoints returning AsyncIterable<T>",
+        "Generate async iterator methods for NDJSON endpoints with chunk buffering",
+        "Validate each streamed chunk against response schema",
+        "Support connection abort/cancellation",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Create Python code generation templates",
+      "description": "As a developer, I need Handlebars templates for generating Python SDK code.",
+      "acceptanceCriteria": [
+        "Create template for Pydantic models from OpenAPI schemas",
+        "Create template for client class with constructor accepting base_url and token",
+        "Create template for API methods with type hints",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Generate Python SDK client",
+      "description": "As a developer, I want to generate a Python SDK so I can consume my API with type hints and validation.",
+      "acceptanceCriteria": [
+        "Generate one client class with methods for each API operation",
+        "Generate Pydantic models for all request/response schemas",
+        "Use Requests as HTTP client",
+        "Support Bearer token auth via constructor config with token update method",
+        "Handle path parameter interpolation into URL",
+        "Handle query parameters as optional keyword arguments",
+        "Generated code passes mypy type checking"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Generate Python streaming methods",
+      "description": "As a developer, I want Python SDK to support SSE and NDJSON streaming endpoints.",
+      "acceptanceCriteria": [
+        "Generate async generator methods for SSE endpoints using httpx or aiohttp",
+        "Generate async generator methods for NDJSON endpoints with line buffering",
+        "Validate each streamed chunk against Pydantic model",
+        "Support connection cancellation",
+        "Generated code passes mypy type checking"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Output as inline code",
+      "description": "As a developer, I want to generate SDK code directly into my project.",
+      "acceptanceCriteria": [
+        "CLI flag --output <directory> specifies output location",
+        "Generate source files directly without package scaffolding",
+        "Prompt for confirmation before overwriting existing files",
+        "Format TypeScript output with Prettier",
+        "Format Python output with Black",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Output as publishable TypeScript package",
+      "description": "As a developer, I want to generate a complete npm package so I can publish the SDK.",
+      "acceptanceCriteria": [
+        "CLI flag --package enables package mode",
+        "Generate package.json with name from --name flag",
+        "Generate tsconfig.json targeting ES2020+ with ESM output",
+        "Generate build scripts",
+        "Include README with usage examples",
+        "Include appropriate .gitignore",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Output as publishable Python package",
+      "description": "As a developer, I want to generate a complete pip package so I can publish the SDK.",
+      "acceptanceCriteria": [
+        "CLI flag --package with --lang python enables Python package mode",
+        "Generate pyproject.toml with name from --name flag",
+        "Generate setup.py for backwards compatibility",
+        "Generate __init__.py with proper exports",
+        "Include README with usage examples",
+        "Include appropriate .gitignore",
+        "Target Python 3.9+",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
