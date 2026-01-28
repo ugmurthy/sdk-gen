@@ -8,6 +8,9 @@
 - `src/extractor.ts` extracts operations/schemas via `extractAll(spec)`
 - Templates in `src/templates/typescript/*.hbs`, copied to dist during build
 - `src/templates/index.ts` provides `renderInterfaces()`, `renderZodSchemas()`, `renderClient()`
+- `src/generator.ts` provides `generateTypeScriptSDK()` and `writeGeneratedFiles()`
+- Generated TS code must use `.js` extensions in imports for NodeNext compatibility
+- Test generated code typecheck: create temp project with axios, zod deps and run tsc
 
 ---
 
@@ -51,4 +54,16 @@ Thread: https://ampcode.com/threads/T-019c050f-ef5c-71cb-9c77-3ac0022ede44
   - `setSchemaMap()` must be called before `openApiTypeToTs()` to enable schema name matching
   - Build script must copy `.hbs` files to dist: `tsc && cp -r src/templates dist/`
   - Templates: interfaces.hbs (TS types), zod-schemas.hbs (runtime validation), client.hbs (API client class)
+---
+
+## 2026-01-28 - US-005
+Thread: https://ampcode.com/threads/T-019c051a-541f-7094-8eb7-182f7ae0988a
+- Implemented TypeScript SDK generation with file output
+- Files changed: src/generator.ts (new), src/cli.ts, src/templates/typescript/client.hbs, src/templates/typescript/zod-schemas.hbs
+- **Learnings for future iterations:**
+  - Use `'{' + 'paramName' + '}'` in Handlebars to output literal braces (triple braces render unescaped)
+  - ESM imports require `.js` extensions in generated code for NodeNext resolution
+  - Don't duplicate type exports - types.ts has interfaces, schemas.ts only exports Zod schemas
+  - `generateTypeScriptSDK()` in generator.ts returns array of GeneratedFile objects
+  - CLI prompts for confirmation before overwriting; use `--force` to skip
 ---
