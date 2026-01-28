@@ -1,0 +1,13 @@
+openapi: "3.0.0"
+info:
+  title: Invalid API
+paths:
+  /test:
+    get:
+      responses:
+        '200':
+          description: Missing schema ref
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NonExistent'

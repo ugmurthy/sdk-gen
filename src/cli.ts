@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { parseOpenAPISpec } from './parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -33,7 +34,18 @@ program
       process.exit(1);
     }
 
-    console.log(`Generating ${options.lang} SDK from ${specFile} to ${options.output}`);
+    try {
+      const spec = await parseOpenAPISpec(specFile);
+      console.log(`Parsed OpenAPI ${spec.openapi} specification: ${spec.info.title} v${spec.info.version}`);
+      console.log(`Generating ${options.lang} SDK to ${options.output}`);
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(`Error: ${error.message}`);
+      } else {
+        console.error('An unexpected error occurred');
+      }
+      process.exit(1);
+    }
   });
 
 program.parse();
