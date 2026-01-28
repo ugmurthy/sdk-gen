@@ -3,6 +3,8 @@
 - CLI entry point is `src/cli.ts` using Commander.js
 - Run `npm run typecheck` to verify TypeScript types
 - Run `npm run build` to compile to `dist/`
+- `openapi-types` package provides TypeScript types for OpenAPI specs
+- SwaggerParser.validate() parses and validates in one step
 
 ---
 
@@ -14,4 +16,14 @@ Thread: https://ampcode.com/threads/T-019c050f-ef5c-71cb-9c77-3ac0022ede44
   - Commander.js `requiredOption()` enforces mandatory flags
   - Use `fileURLToPath` for ESM `__dirname` equivalent
   - Project uses NodeNext module resolution
+---
+
+## 2026-01-28 - US-002
+Thread: https://ampcode.com/threads/T-019c050f-ef5c-71cb-9c77-3ac0022ede44
+- Implemented OpenAPI spec parsing and validation
+- Files changed: src/parser.ts, src/cli.ts, test-fixtures/petstore.yaml, test-fixtures/invalid.yaml
+- **Learnings for future iterations:**
+  - swagger-parser returns typed OpenAPI.Document, cast to OpenAPIV3/V3_1
+  - Test fixtures in `test-fixtures/` directory for manual testing
+  - Error handling wraps swagger-parser errors with user-friendly messages
 ---
