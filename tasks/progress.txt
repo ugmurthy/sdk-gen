@@ -6,6 +6,8 @@
 - `openapi-types` package provides TypeScript types for OpenAPI specs
 - SwaggerParser.validate() parses and validates in one step
 - `src/extractor.ts` extracts operations/schemas via `extractAll(spec)`
+- Templates in `src/templates/typescript/*.hbs`, copied to dist during build
+- `src/templates/index.ts` provides `renderInterfaces()`, `renderZodSchemas()`, `renderClient()`
 
 ---
 
@@ -38,4 +40,15 @@ Thread: https://ampcode.com/threads/T-019c050f-ef5c-71cb-9c77-3ac0022ede44
   - Operations derive operationId from method+path if not provided
   - Streaming detection via content types: text/event-stream (SSE), application/x-ndjson (NDJSON)
   - ExtractedOperation includes pathParameters, queryParameters, requestBody, responseSchema, isStreaming
+---
+
+## 2026-01-28 - US-004
+Thread: https://ampcode.com/threads/T-019c050f-ef5c-71cb-9c77-3ac0022ede44
+- Created Handlebars templates for TypeScript code generation
+- Files changed: src/templates/index.ts, src/templates/typescript/*.hbs, package.json
+- **Learnings for future iterations:**
+  - swagger-parser dereferences $refs - use schema fingerprinting to match dereferenced objects to names
+  - `setSchemaMap()` must be called before `openApiTypeToTs()` to enable schema name matching
+  - Build script must copy `.hbs` files to dist: `tsc && cp -r src/templates dist/`
+  - Templates: interfaces.hbs (TS types), zod-schemas.hbs (runtime validation), client.hbs (API client class)
 ---
