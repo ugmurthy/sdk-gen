@@ -5,6 +5,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { parseOpenAPISpec } from './parser.js';
 import { extractAll } from './extractor.js';
+import { renderInterfaces, renderZodSchemas, renderClient } from './templates/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -48,6 +49,15 @@ program
       }
 
       console.log(`Generating ${options.lang} SDK to ${options.output}`);
+
+      if (options.lang === 'ts') {
+        const interfaces = renderInterfaces(extracted.schemas);
+        const zodSchemas = renderZodSchemas(extracted.schemas);
+        const client = renderClient(extracted.operations, extracted.schemas);
+        console.log('\n--- Generated Interfaces ---\n', interfaces);
+        console.log('\n--- Generated Zod Schemas ---\n', zodSchemas);
+        console.log('\n--- Generated Client ---\n', client);
+      }
     } catch (error) {
       if (error instanceof Error) {
         console.error(`Error: ${error.message}`);

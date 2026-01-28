@@ -1,0 +1,15 @@
+{{!-- TypeScript interfaces generated from OpenAPI schemas --}}
+{{#each schemas}}
+{{#if description}}
+/** {{description}} */
+{{/if}}
+export interface {{name}} {
+{{#each properties}}
+  {{#if description}}
+  /** {{description}} */
+  {{/if}}
+  {{name}}{{#unless required}}?{{/unless}}: {{tsType}};
+{{/each}}
+}
+
+{{/each}}

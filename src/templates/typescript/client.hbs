@@ -1,0 +1,81 @@
+{{!-- TypeScript SDK client class --}}
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+{{#if hasSchemas}}
+import type { {{#each schemaNames}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} } from './types';
+import { {{#each schemaNames}}{{this}}Schema{{#unless @last}}, {{/unless}}{{/each}} } from './schemas';
+{{/if}}
+
+export interface {{clientName}}Config {
+  baseUrl: string;
+  token?: string;
+  timeout?: number;
+}
+
+export class {{clientName}} {
+  private client: AxiosInstance;
+  private token?: string;
+
+  constructor(config: {{clientName}}Config) {
+    this.token = config.token;
+    this.client = axios.create({
+      baseURL: config.baseUrl,
+      timeout: config.timeout ?? 30000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    this.client.interceptors.request.use((reqConfig) => {
+      if (this.token) {
+        reqConfig.headers.Authorization = `Bearer ${this.token}`;
+      }
+      return reqConfig;
+    });
+  }
+
+  setToken(token: string): void {
+    this.token = token;
+  }
+
+{{#each operations}}
+{{#unless isStreaming}}
+  {{#if summary}}
+  /** {{summary}} */
+  {{/if}}
+  async {{operationId}}({{#if hasParams}}params: {
+{{#each pathParameters}}
+    {{name}}: {{tsType}};
+{{/each}}
+{{#each queryParameters}}
+    {{name}}{{#unless required}}?{{/unless}}: {{tsType}};
+{{/each}}
+{{#if requestBody}}
+    body{{#unless requestBody.required}}?{{/unless}}: {{requestBody.tsType}};
+{{/if}}
+  }{{/if}}): Promise<{{responseType}}> {
+    let url = '{{path}}';
+{{#each pathParameters}}
+    url = url.replace('{ {{~name~}} }', encodeURIComponent(String(params.{{name}})));
+{{/each}}
+
+    const config: AxiosRequestConfig = {
+{{#if hasQueryParams}}
+      params: {
+{{#each queryParameters}}
+        {{name}}: params.{{name}},
+{{/each}}
+      },
+{{/if}}
+    };
+
+    const response = await this.client.{{lowerMethod}}{{#if requestBody}}<{{responseType}}>(url, params.body, config){{else}}<{{responseType}}>(url, config){{/if}};
+{{#if hasResponseSchema}}
+    return {{responseSchemaName}}Schema.parse(response.data);
+{{else}}
+    return response.data;
+{{/if}}
+  }
+
+{{/unless}}
+{{/each}}
+}

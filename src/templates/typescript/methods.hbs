@@ -1,0 +1,56 @@
+{{!-- TypeScript API method templates --}}
+{{#each operations}}
+{{#unless isStreaming}}
+{{#if summary}}
+/**
+ * {{summary}}
+{{#if description}}
+ * {{description}}
+{{/if}}
+{{#each pathParameters}}
+ * @param {{name}} - Path parameter
+{{/each}}
+{{#each queryParameters}}
+ * @param {{name}} - Query parameter{{#unless required}} (optional){{/unless}}
+{{/each}}
+{{#if requestBody}}
+ * @param body - Request body
+{{/if}}
+ * @returns {{responseType}}
+ */
+{{/if}}
+async {{operationId}}({{#if hasParams}}params: {
+{{#each pathParameters}}
+  {{name}}: {{tsType}};
+{{/each}}
+{{#each queryParameters}}
+  {{name}}{{#unless required}}?{{/unless}}: {{tsType}};
+{{/each}}
+{{#if requestBody}}
+  body{{#unless requestBody.required}}?{{/unless}}: {{requestBody.tsType}};
+{{/if}}
+}{{/if}}): Promise<{{responseType}}> {
+  let url = '{{path}}';
+{{#each pathParameters}}
+  url = url.replace('{ {{~name~}} }', encodeURIComponent(String(params.{{name}})));
+{{/each}}
+
+  const config: AxiosRequestConfig = {
+{{#if hasQueryParams}}
+    params: {
+{{#each queryParameters}}
+      {{name}}: params.{{name}},
+{{/each}}
+    },
+{{/if}}
+  };
+
+  const response = await this.client.{{lowerMethod}}{{#if requestBody}}<{{responseType}}>(url, params.body, config){{else}}<{{responseType}}>(url, config){{/if}};
+{{#if hasResponseSchema}}
+  return {{responseSchemaName}}Schema.parse(response.data);
+{{else}}
+  return response.data;
+{{/if}}
+}
+{{/unless}}
+{{/each}}
