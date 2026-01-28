@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { parseOpenAPISpec } from './parser.js';
+import { extractAll } from './extractor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -37,6 +38,15 @@ program
     try {
       const spec = await parseOpenAPISpec(specFile);
       console.log(`Parsed OpenAPI ${spec.openapi} specification: ${spec.info.title} v${spec.info.version}`);
+
+      const extracted = extractAll(spec);
+      console.log(`Found ${extracted.operations.length} operations and ${extracted.schemas.length} schemas`);
+      
+      const streamingOps = extracted.operations.filter(op => op.isStreaming);
+      if (streamingOps.length > 0) {
+        console.log(`Detected ${streamingOps.length} streaming endpoint(s)`);
+      }
+
       console.log(`Generating ${options.lang} SDK to ${options.output}`);
     } catch (error) {
       if (error instanceof Error) {

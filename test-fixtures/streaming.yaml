@@ -1,0 +1,82 @@
+openapi: "3.0.0"
+info:
+  title: Streaming API
+  version: "1.0.0"
+paths:
+  /events:
+    get:
+      operationId: streamEvents
+      summary: SSE stream of events
+      responses:
+        '200':
+          description: Event stream
+          content:
+            text/event-stream:
+              schema:
+                type: object
+                properties:
+                  event:
+                    type: string
+                  data:
+                    type: string
+  /logs:
+    get:
+      operationId: streamLogs
+      summary: NDJSON stream of logs
+      parameters:
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [debug, info, warn, error]
+      responses:
+        '200':
+          description: Log stream
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/LogEntry'
+  /users/{userId}/messages:
+    get:
+      summary: Get messages without operationId
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+components:
+  schemas:
+    LogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        level:
+          type: string
+        message:
+          type: string
+    Message:
+      type: object
+      required:
+        - id
+        - text
+      properties:
+        id:
+          type: string
+        text:
+          type: string
