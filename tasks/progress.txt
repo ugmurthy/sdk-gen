@@ -107,3 +107,17 @@ Thread: https://ampcode.com/threads/T-019c0771-e6e0-71a3-a947-ab5202989895
   - Streaming endpoints are skipped in non-streaming client (handled in US-009)
   - Test with mypy: create venv, install mypy pydantic requests types-requests, run `mypy --strict`
 ---
+
+## 2026-01-29 - US-009
+Thread: https://ampcode.com/threads/T-019c0775-bee1-7429-81ed-37f6968f2e1b
+- Implemented Python streaming methods for SSE and NDJSON endpoints
+- Files changed: src/templates/python/streaming_client.hbs (new), src/templates/index.ts, src/generator.ts
+- **Learnings for future iterations:**
+  - Python streaming uses `httpx.AsyncClient` with `stream()` method for async iteration
+  - SSE parsing: split on `\n\n`, extract `data:` lines and parse JSON
+  - NDJSON parsing: split on `\n`, parse each complete line as JSON
+  - Streaming client is separate file `streaming_client.py` with `ApiClientStreaming` class
+  - `__init__.py` exports both sync client and streaming client when streaming ops exist
+  - httpx timeout can be float (e.g., 30.0) for more precision
+  - Use `response.aiter_text()` for async text chunk iteration
+---
