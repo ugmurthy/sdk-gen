@@ -126,7 +126,7 @@
         "Generated code passes mypy type checking"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

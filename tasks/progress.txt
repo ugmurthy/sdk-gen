@@ -96,3 +96,14 @@ Thread: https://ampcode.com/threads/T-019c076b-e90a-7068-b543-0db72a7a953d
   - Added `isListResponse` flag to `TemplateOperation` for proper array validation handling
   - Request body serialization: `body.model_dump() if hasattr(body, 'model_dump') else body`
 ---
+
+## 2026-01-29 - US-008
+Thread: https://ampcode.com/threads/T-019c0771-e6e0-71a3-a947-ab5202989895
+- Implemented Python SDK generation with Pydantic models and Requests client
+- Files changed: src/generator.ts, src/cli.ts
+- **Learnings for future iterations:**
+  - `generatePythonSDK()` returns GeneratedFile[] with models.py, client.py, __init__.py
+  - Python __init__.py needs `__all__` for proper exports
+  - Streaming endpoints are skipped in non-streaming client (handled in US-009)
+  - Test with mypy: create venv, install mypy pydantic requests types-requests, run `mypy --strict`
+---
