@@ -1,0 +1,96 @@
+{{!-- Python SDK client class --}}
+from typing import Optional, Dict, List, Any
+import requests
+
+{{#if hasSchemas}}
+from .models import {{#each schemaNames}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+{{/if}}
+
+
+class {{clientName}}Config:
+    """Configuration for {{clientName}}."""
+
+    def __init__(
+        self,
+        base_url: str,
+        token: Optional[str] = None,
+        timeout: int = 30
+    ):
+        self.base_url = base_url.rstrip("/")
+        self.token = token
+        self.timeout = timeout
+
+
+class {{clientName}}:
+    """Generated API client."""
+
+    def __init__(self, config: {{clientName}}Config):
+        self._config = config
+        self._session = requests.Session()
+        self._session.headers["Content-Type"] = "application/json"
+        if config.token:
+            self._session.headers["Authorization"] = f"Bearer {config.token}"
+
+    def set_token(self, token: str) -> None:
+        """Update the authentication token."""
+        self._config.token = token
+        self._session.headers["Authorization"] = f"Bearer {token}"
+
+{{#each operations}}
+{{#unless isStreaming}}
+    def {{snakeOperationId}}(
+        self,
+{{#each pathParameters}}
+        {{snakeName}}: {{pythonType}},
+{{/each}}
+{{#each queryParameters}}
+        {{snakeName}}: {{#unless required}}Optional[{{/unless}}{{pythonType}}{{#unless required}}] = None{{/unless}},
+{{/each}}
+{{#if requestBody}}
+        body: {{#unless requestBody.required}}Optional[{{/unless}}{{requestBody.pythonType}}{{#unless requestBody.required}}] = None{{/unless}},
+{{/if}}
+    ) -> {{pythonResponseType}}:
+{{#if summary}}
+        """{{summary}}"""
+{{/if}}
+        url = "{{path}}"
+{{#each pathParameters}}
+        url = url.replace("{" + "{{name}}" + "}", str({{snakeName}}))
+{{/each}}
+
+{{#if hasQueryParams}}
+        params: Dict[str, Any] = {}
+{{#each queryParameters}}
+        if {{snakeName}} is not None:
+            params["{{name}}"] = {{snakeName}}
+{{/each}}
+{{/if}}
+
+{{#if requestBody}}
+        json_body = body.model_dump() if hasattr(body, 'model_dump') else body
+{{/if}}
+        response = self._session.{{lowerMethod}}(
+            f"{self._config.base_url}{url}",
+{{#if hasQueryParams}}
+            params=params,
+{{/if}}
+{{#if requestBody}}
+            json=json_body,
+{{/if}}
+            timeout=self._config.timeout,
+        )
+        response.raise_for_status()
+{{#if hasVoidResponse}}
+        return None
+{{else if hasResponseSchema}}
+{{#if isListResponse}}
+        return [{{responseSchemaName}}.model_validate(item) for item in response.json()]
+{{else}}
+        return {{responseSchemaName}}.model_validate(response.json())
+{{/if}}
+{{else}}
+        return response.json()
+{{/if}}
+
+{{/unless}}
+{{/each}}

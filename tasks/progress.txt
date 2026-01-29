@@ -6,11 +6,12 @@
 - `openapi-types` package provides TypeScript types for OpenAPI specs
 - SwaggerParser.validate() parses and validates in one step
 - `src/extractor.ts` extracts operations/schemas via `extractAll(spec)`
-- Templates in `src/templates/typescript/*.hbs`, copied to dist during build
-- `src/templates/index.ts` provides `renderInterfaces()`, `renderZodSchemas()`, `renderClient()`
+- Templates in `src/templates/typescript/*.hbs` and `src/templates/python/*.hbs`, copied to dist during build
+- `src/templates/index.ts` provides `renderInterfaces()`, `renderZodSchemas()`, `renderClient()` for TS and `renderPythonModels()`, `renderPythonClient()` for Python
 - `src/generator.ts` provides `generateTypeScriptSDK()` and `writeGeneratedFiles()`
 - Generated TS code must use `.js` extensions in imports for NodeNext compatibility
 - Test generated code typecheck: create temp project with axios, zod deps and run tsc
+- Use `{{{...}}}` triple braces in Handlebars for TypeScript types with `<>` characters
 
 ---
 
@@ -66,4 +67,32 @@ Thread: https://ampcode.com/threads/T-019c051a-541f-7094-8eb7-182f7ae0988a
   - Don't duplicate type exports - types.ts has interfaces, schemas.ts only exports Zod schemas
   - `generateTypeScriptSDK()` in generator.ts returns array of GeneratedFile objects
   - CLI prompts for confirmation before overwriting; use `--force` to skip
+---
+
+## 2026-01-28 - US-006
+Thread: https://ampcode.com/threads/T-019c051f-6ce8-75fd-987a-c3a5b0490f68
+- Implemented TypeScript streaming methods for SSE and NDJSON endpoints
+- Files changed: src/templates/typescript/client.hbs, src/templates/index.ts, src/extractor.ts
+- **Learnings for future iterations:**
+  - Use `{{{...}}}` triple braces in Handlebars for types containing special chars like `<>` to avoid HTML escaping
+  - Streaming methods use native fetch API (not axios) for proper ReadableStream support
+  - `isSse` boolean added to TemplateOperation for template conditionals
+  - SSE parsing: split on `\n\n`, then extract `data:` lines
+  - NDJSON parsing: split on `\n`, parse each complete line
+  - AbortSignal support via optional `signal` parameter
+  - `extractResponseSchema()` now checks SSE/NDJSON content types for streaming schemas
+---
+
+## 2026-01-29 - US-007
+Thread: https://ampcode.com/threads/T-019c076b-e90a-7068-b543-0db72a7a953d
+- Created Handlebars templates for Python code generation
+- Files changed: src/templates/python/models.hbs, src/templates/python/client.hbs, src/templates/index.ts
+- **Learnings for future iterations:**
+  - Added `openApiTypeToPython()` function for converting OpenAPI types to Python type hints
+  - Added `toSnakeCase()` helper for Python naming conventions
+  - `TemplateSchemaProperty` and `TemplateParameter` now include `snakeName` and `pythonType`
+  - Python templates use `model_validate()` for Pydantic v2 validation
+  - List responses use list comprehension: `[Model.model_validate(item) for item in response.json()]`
+  - Added `isListResponse` flag to `TemplateOperation` for proper array validation handling
+  - Request body serialization: `body.model_dump() if hasattr(body, 'model_dump') else body`
 ---

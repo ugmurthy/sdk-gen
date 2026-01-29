@@ -1,0 +1,20 @@
+{{!-- Pydantic models generated from OpenAPI schemas --}}
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field
+
+{{#each schemas}}
+{{#if description}}
+class {{name}}(BaseModel):
+    """{{description}}"""
+{{else}}
+class {{name}}(BaseModel):
+{{/if}}
+{{#if properties.length}}
+{{#each properties}}
+    {{snakeName}}: {{#unless required}}Optional[{{/unless}}{{pythonType}}{{#unless required}}]{{/unless}}{{#if defaultValue}} = {{defaultValue}}{{else}}{{#unless required}} = None{{/unless}}{{/if}}{{#if description}}  # {{description}}{{/if}}
+{{/each}}
+{{else}}
+    pass
+{{/if}}
+
+{{/each}}
