@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { createInterface } from 'readline';
 import { parseOpenAPISpec } from './parser.js';
 import { extractAll } from './extractor.js';
-import { generateTypeScriptSDK, generatePythonSDK, generateTypeScriptPackageFiles, writeGeneratedFiles } from './generator.js';
+import { generateTypeScriptSDK, generatePythonSDK, generateTypeScriptPackageFiles, generatePythonPackageFiles, writeGeneratedFiles } from './generator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -51,12 +51,18 @@ program
       }
 
       const outputDir = resolve(options.output);
-      const isPackageMode = options.package && options.lang === 'ts';
+      const isPackageMode = options.package === true;
       console.log(`Generating ${options.lang} SDK${isPackageMode ? ' package' : ''} to ${outputDir}`);
 
       let files;
       if (options.package && options.lang === 'ts') {
         files = generateTypeScriptPackageFiles(extracted, {
+          name: options.name!,
+          description: `SDK client for ${spec.info.title}`,
+          version: spec.info.version,
+        });
+      } else if (options.package && options.lang === 'python') {
+        files = generatePythonPackageFiles(extracted, {
           name: options.name!,
           description: `SDK client for ${spec.info.title}`,
           version: spec.info.version,

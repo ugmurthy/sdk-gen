@@ -243,6 +243,245 @@ dist/
 `;
 }
 
+export function generatePythonPackageFiles(
+  data: ExtractedData,
+  options: PackageOptions,
+  clientName: string = 'ApiClient'
+): GeneratedFile[] {
+  const sdkFiles = generatePythonSDK(data, clientName);
+  
+  const packageName = options.name.replace(/-/g, '_');
+  
+  const srcFiles = sdkFiles.map(f => ({
+    path: `${packageName}/${f.path}`,
+    content: f.content,
+  }));
+
+  const pyprojectToml = generatePyprojectToml(options, data.operations);
+  const setupPy = generateSetupPy(options, data.operations);
+  const readme = generatePythonReadme(options, clientName, data);
+  const gitignore = generatePythonGitignore();
+
+  return [
+    ...srcFiles,
+    { path: 'pyproject.toml', content: pyprojectToml },
+    { path: 'setup.py', content: setupPy },
+    { path: 'README.md', content: readme },
+    { path: '.gitignore', content: gitignore },
+  ];
+}
+
+function generatePyprojectToml(options: PackageOptions, operations: ExtractedOperation[]): string {
+  const hasStreaming = operations.some(op => op.isStreaming);
+  const packageName = options.name.replace(/-/g, '_');
+  
+  const dependencies = ['pydantic>=2.0.0', 'requests>=2.28.0'];
+  if (hasStreaming) {
+    dependencies.push('httpx>=0.24.0');
+  }
+  
+  return `[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "${options.name}"
+version = "${options.version || '1.0.0'}"
+description = "${options.description || `SDK client for ${options.name}`}"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+dependencies = [
+${dependencies.map(d => `    "${d}",`).join('\n')}
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.0.0",
+    "types-requests>=2.28.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["${packageName}*"]
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+`;
+}
+
+function generateSetupPy(options: PackageOptions, operations: ExtractedOperation[]): string {
+  const hasStreaming = operations.some(op => op.isStreaming);
+  const packageName = options.name.replace(/-/g, '_');
+  
+  const dependencies = ["'pydantic>=2.0.0'", "'requests>=2.28.0'"];
+  if (hasStreaming) {
+    dependencies.push("'httpx>=0.24.0'");
+  }
+  
+  return `#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Backwards-compatible setup.py for ${options.name}."""
+
+from setuptools import setup, find_packages
+
+setup(
+    name="${options.name}",
+    version="${options.version || '1.0.0'}",
+    description="${options.description || `SDK client for ${options.name}`}",
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
+    python_requires=">=3.9",
+    packages=find_packages(),
+    install_requires=[
+        ${dependencies.join(',\n        ')},
+    ],
+    extras_require={
+        "dev": [
+            "mypy>=1.0.0",
+            "types-requests>=2.28.0",
+        ],
+    },
+)
+`;
+}
+
+function generatePythonReadme(options: PackageOptions, clientName: string, data: ExtractedData): string {
+  const hasStreaming = data.operations.some(op => op.isStreaming);
+  const nonStreamingOp = data.operations.find(op => !op.isStreaming);
+  const streamingOp = data.operations.find(op => op.isStreaming);
+  const packageName = options.name.replace(/-/g, '_');
+
+  let readme = `# ${options.name}
+
+${options.description || `Python SDK client for ${options.name}`}
+
+## Installation
+
+\`\`\`bash
+pip install ${options.name}
+\`\`\`
+
+## Usage
+
+\`\`\`python
+from ${packageName} import ${clientName}
+
+client = ${clientName}(
+    base_url="https://api.example.com",
+    token="your-api-token",  # Optional
+)
+`;
+
+  if (nonStreamingOp) {
+    const snakeName = toSnakeCase(nonStreamingOp.operationId);
+    readme += `
+# Example API call
+response = client.${snakeName}(...)
+`;
+  }
+
+  readme += `\`\`\`
+`;
+
+  if (hasStreaming && streamingOp) {
+    const snakeName = toSnakeCase(streamingOp.operationId);
+    readme += `
+## Streaming
+
+\`\`\`python
+import asyncio
+from ${packageName} import ${clientName}Streaming
+
+async def main():
+    client = ${clientName}Streaming(
+        base_url="https://api.example.com",
+        token="your-api-token",
+    )
+    
+    async for chunk in client.${snakeName}(...):
+        print(chunk)
+
+asyncio.run(main())
+\`\`\`
+`;
+  }
+
+  readme += `
+## API Methods
+
+`;
+
+  for (const op of data.operations) {
+    const snakeName = toSnakeCase(op.operationId);
+    const params: string[] = [];
+    if (op.pathParameters.length > 0) {
+      params.push(...op.pathParameters.map(p => toSnakeCase(p.name)));
+    }
+    if (op.requestBody) {
+      params.push('body');
+    }
+    if (op.queryParameters.length > 0) {
+      params.push('**kwargs');
+    }
+    
+    readme += `- \`${snakeName}(${params.join(', ')})\`${op.isStreaming ? ' - Streaming (async)' : ''}\n`;
+  }
+
+  readme += `
+## Requirements
+
+- Python 3.9+
+- pydantic >= 2.0.0
+- requests >= 2.28.0
+${hasStreaming ? '- httpx >= 0.24.0 (for streaming)\n' : ''}
+## License
+
+MIT
+`;
+
+  return readme;
+}
+
+function generatePythonGitignore(): string {
+  return `__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.mypy_cache/
+.pytest_cache/
+.venv/
+venv/
+ENV/
+.DS_Store
+`;
+}
+
+function toSnakeCase(str: string): string {
+  return str
+    .replace(/([A-Z])/g, '_$1')
+    .replace(/^_/, '')
+    .replace(/[-\s]+/g, '_')
+    .toLowerCase();
+}
+
 export function generatePythonSDK(
   data: ExtractedData,
   clientName: string = 'ApiClient'

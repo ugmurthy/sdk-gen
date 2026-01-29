@@ -12,6 +12,9 @@
 - Generated TS code must use `.js` extensions in imports for NodeNext compatibility
 - Test generated code typecheck: create temp project with axios, zod deps and run tsc
 - Use `{{{...}}}` triple braces in Handlebars for TypeScript types with `<>` characters
+- Package mode generates files in `src/` subdirectory with package.json, tsconfig.json, README.md, .gitignore at root
+- Use `generateTypeScriptPackageFiles()` for TS package mode, returns GeneratedFile[] with src/ prefix for source files
+- `writeGeneratedFiles()` creates subdirectories as needed using `dirname()` and `mkdirSync()`
 
 ---
 
@@ -132,4 +135,15 @@ Thread: https://ampcode.com/threads/T-019c077c-001d-767e-b933-58f743bd1bbd
   - `writeGeneratedFiles()` is now async due to Prettier's async format API
   - Formatting failures are gracefully handled with warnings (output still generated)
   - TypeScript formatting uses: singleQuote, trailingComma: 'es5', printWidth: 100
+---
+
+## 2026-01-29 - US-011
+Thread: https://ampcode.com/threads/T-019c077e-2e08-71bd-9525-248dc949510f
+- Implemented publishable TypeScript package generation
+- Files changed: src/generator.ts, src/cli.ts, src/templates/typescript/client.hbs
+- **Learnings for future iterations:**
+  - Added `generateTypeScriptPackageFiles()` that wraps SDK files in src/ directory
+  - Package includes: package.json (name from --name flag), tsconfig.json (ES2020+/NodeNext), README.md, .gitignore
+  - Fixed array response validation: use `isListResponse` flag in template to map over items instead of parse entire array
+  - `writeGeneratedFiles()` needed update to create subdirectories with `dirname()` for nested paths like `src/types.ts`
 ---
