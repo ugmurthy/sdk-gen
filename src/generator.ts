@@ -1,7 +1,9 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import { execSync } from 'child_process';
 import type { ExtractedData } from './extractor.js';
 import { renderInterfaces, renderZodSchemas, renderClient, renderPythonModels, renderPythonClient, renderPythonStreamingClient, setSchemaMap } from './templates/index.js';
+import prettier from 'prettier';
 
 export interface GeneratorOptions {
   outputDir: string;
@@ -123,11 +125,40 @@ function generatePythonInitFile(hasSchemas: boolean, clientName: string, schemaN
   return lines.join('\n');
 }
 
-export function writeGeneratedFiles(
+async function formatTypeScriptFile(content: string, filePath: string): Promise<string> {
+  try {
+    return await prettier.format(content, {
+      parser: 'typescript',
+      singleQuote: true,
+      trailingComma: 'es5',
+      printWidth: 100,
+      tabWidth: 2,
+    });
+  } catch {
+    console.warn(`Warning: Could not format ${filePath} with Prettier`);
+    return content;
+  }
+}
+
+function formatPythonFile(content: string, filePath: string): string {
+  try {
+    const result = execSync('black --quiet -', {
+      input: content,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return result;
+  } catch {
+    console.warn(`Warning: Could not format ${filePath} with Black (is Black installed?)`);
+    return content;
+  }
+}
+
+export async function writeGeneratedFiles(
   files: GeneratedFile[],
   outputDir: string,
   overwrite: boolean = false
-): void {
+): Promise<void> {
   if (!existsSync(outputDir)) {
     mkdirSync(outputDir, { recursive: true });
   }
@@ -140,7 +171,15 @@ export function writeGeneratedFiles(
       continue;
     }
 
-    writeFileSync(filePath, file.content, 'utf-8');
+    let content = file.content;
+    
+    if (file.path.endsWith('.ts')) {
+      content = await formatTypeScriptFile(content, file.path);
+    } else if (file.path.endsWith('.py')) {
+      content = formatPythonFile(content, file.path);
+    }
+
+    writeFileSync(filePath, content, 'utf-8');
     console.log(`Generated ${file.path}`);
   }
 }

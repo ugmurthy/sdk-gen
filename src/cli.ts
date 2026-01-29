@@ -70,7 +70,7 @@ program
         }
       }
 
-      writeGeneratedFiles(files, outputDir, options.force || existingFiles.length > 0);
+      await writeGeneratedFiles(files, outputDir, options.force || existingFiles.length > 0);
       const langName = options.lang === 'ts' ? 'TypeScript' : 'Python';
       console.log(`\nSuccessfully generated ${langName} SDK in ${outputDir}`);
     } catch (error) {
