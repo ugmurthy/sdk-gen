@@ -377,3 +377,19 @@ export function renderPythonClient(
     hasSchemas: schemaNames.length > 0,
   });
 }
+
+export function renderPythonStreamingClient(
+  operations: ExtractedOperation[],
+  schemas: ExtractedSchema[],
+  clientName: string = 'ApiClient'
+): string {
+  setSchemaMap(schemas);
+  const template = loadTemplate('python', 'streaming_client');
+  const schemaNames = schemas.map(s => s.name);
+  return template({
+    operations: prepareOperations(operations, schemaNames),
+    clientName,
+    schemaNames,
+    hasSchemas: schemaNames.length > 0,
+  });
+}

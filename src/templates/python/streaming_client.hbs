@@ -1,0 +1,145 @@
+{{!-- Python SDK streaming client class --}}
+from typing import Optional, Dict, AsyncIterator, Any
+import httpx
+import json
+
+{{#if hasSchemas}}
+from .models import {{#each schemaNames}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+{{/if}}
+
+
+class {{clientName}}StreamingConfig:
+    """Configuration for {{clientName}}Streaming."""
+
+    def __init__(
+        self,
+        base_url: str,
+        token: Optional[str] = None,
+        timeout: float = 30.0
+    ):
+        self.base_url = base_url.rstrip("/")
+        self.token = token
+        self.timeout = timeout
+
+
+class {{clientName}}Streaming:
+    """Generated async streaming API client."""
+
+    def __init__(self, config: {{clientName}}StreamingConfig):
+        self._config = config
+
+    def set_token(self, token: str) -> None:
+        """Update the authentication token."""
+        self._config.token = token
+
+    def _get_headers(self, accept: str) -> Dict[str, str]:
+        """Build request headers."""
+        headers: Dict[str, str] = {"Accept": accept}
+        if self._config.token:
+            headers["Authorization"] = f"Bearer {self._config.token}"
+        return headers
+
+{{#each operations}}
+{{#if isStreaming}}
+    async def {{snakeOperationId}}(
+        self,
+{{#each pathParameters}}
+        {{snakeName}}: {{pythonType}},
+{{/each}}
+{{#each queryParameters}}
+        {{snakeName}}: {{#unless required}}Optional[{{/unless}}{{pythonType}}{{#unless required}}] = None{{/unless}},
+{{/each}}
+    ) -> AsyncIterator[{{{pythonResponseType}}}]:
+{{#if summary}}
+        """{{summary}}"""
+{{/if}}
+        url = "{{path}}"
+{{#each pathParameters}}
+        url = url.replace("{" + "{{name}}" + "}", str({{snakeName}}))
+{{/each}}
+
+{{#if hasQueryParams}}
+        params: Dict[str, Any] = {}
+{{#each queryParameters}}
+        if {{snakeName}} is not None:
+            params["{{name}}"] = {{snakeName}}
+{{/each}}
+{{/if}}
+
+        headers = self._get_headers("{{#if isSse}}text/event-stream{{else}}application/x-ndjson{{/if}}")
+
+        async with httpx.AsyncClient(timeout=self._config.timeout) as client:
+            async with client.stream(
+                "{{method}}",
+                f"{self._config.base_url}{url}",
+                headers=headers,
+{{#if hasQueryParams}}
+                params=params,
+{{/if}}
+            ) as response:
+                response.raise_for_status()
+{{#if isSse}}
+                buffer = ""
+                async for chunk in response.aiter_text():
+                    buffer += chunk
+                    
+                    while "\n\n" in buffer:
+                        event, buffer = buffer.split("\n\n", 1)
+                        if not event.strip():
+                            continue
+                        
+                        data = ""
+                        for line in event.split("\n"):
+                            if line.startswith("data:"):
+                                data += line[5:].strip()
+                        
+                        if data:
+                            parsed = json.loads(data)
+{{#if hasResponseSchema}}
+                            yield {{responseSchemaName}}.model_validate(parsed)
+{{else}}
+                            yield parsed
+{{/if}}
+                
+                # Handle remaining buffer
+                if buffer.strip():
+                    data = ""
+                    for line in buffer.split("\n"):
+                        if line.startswith("data:"):
+                            data += line[5:].strip()
+                    if data:
+                        parsed = json.loads(data)
+{{#if hasResponseSchema}}
+                        yield {{responseSchemaName}}.model_validate(parsed)
+{{else}}
+                        yield parsed
+{{/if}}
+{{else}}
+                buffer = ""
+                async for chunk in response.aiter_text():
+                    buffer += chunk
+                    
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        if not line.strip():
+                            continue
+                        
+                        parsed = json.loads(line)
+{{#if hasResponseSchema}}
+                        yield {{responseSchemaName}}.model_validate(parsed)
+{{else}}
+                        yield parsed
+{{/if}}
+                
+                # Handle remaining buffer
+                if buffer.strip():
+                    parsed = json.loads(buffer)
+{{#if hasResponseSchema}}
+                    yield {{responseSchemaName}}.model_validate(parsed)
+{{else}}
+                    yield parsed
+{{/if}}
+{{/if}}
+
+{{/if}}
+{{/each}}

@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import type { ExtractedData } from './extractor.js';
-import { renderInterfaces, renderZodSchemas, renderClient, renderPythonModels, renderPythonClient, setSchemaMap } from './templates/index.js';
+import { renderInterfaces, renderZodSchemas, renderClient, renderPythonModels, renderPythonClient, renderPythonStreamingClient, setSchemaMap } from './templates/index.js';
 
 export interface GeneratorOptions {
   outputDir: string;
@@ -80,26 +80,42 @@ export function generatePythonSDK(
     content: renderPythonClient(data.operations, data.schemas, clientName),
   });
 
+  // Add streaming client if there are streaming operations
+  const hasStreamingOps = data.operations.some(op => op.isStreaming);
+  if (hasStreamingOps) {
+    files.push({
+      path: 'streaming_client.py',
+      content: renderPythonStreamingClient(data.operations, data.schemas, clientName),
+    });
+  }
+
   files.push({
     path: '__init__.py',
-    content: generatePythonInitFile(data.schemas.length > 0, clientName, data.schemas.map(s => s.name)),
+    content: generatePythonInitFile(data.schemas.length > 0, clientName, data.schemas.map(s => s.name), hasStreamingOps),
   });
 
   return files;
 }
 
-function generatePythonInitFile(hasSchemas: boolean, clientName: string, schemaNames: string[]): string {
+function generatePythonInitFile(hasSchemas: boolean, clientName: string, schemaNames: string[], hasStreaming: boolean = false): string {
   const lines: string[] = [];
   
   if (hasSchemas) {
     lines.push(`from .models import ${schemaNames.join(', ')}`);
   }
   lines.push(`from .client import ${clientName}, ${clientName}Config`);
+  if (hasStreaming) {
+    lines.push(`from .streaming_client import ${clientName}Streaming, ${clientName}StreamingConfig`);
+  }
   lines.push('');
   
   const exports = hasSchemas 
     ? [...schemaNames, clientName, `${clientName}Config`]
     : [clientName, `${clientName}Config`];
+  
+  if (hasStreaming) {
+    exports.push(`${clientName}Streaming`, `${clientName}StreamingConfig`);
+  }
   
   lines.push(`__all__ = [${exports.map(e => `"${e}"`).join(', ')}]`);
   lines.push('');
