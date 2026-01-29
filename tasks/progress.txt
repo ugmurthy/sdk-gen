@@ -121,3 +121,15 @@ Thread: https://ampcode.com/threads/T-019c0775-bee1-7429-81ed-37f6968f2e1b
   - httpx timeout can be float (e.g., 30.0) for more precision
   - Use `response.aiter_text()` for async text chunk iteration
 ---
+
+## 2026-01-29 - US-010
+Thread: https://ampcode.com/threads/T-019c077c-001d-767e-b933-58f743bd1bbd
+- Implemented formatting for generated SDK code
+- Files changed: src/generator.ts, src/cli.ts, package.json
+- **Learnings for future iterations:**
+  - Prettier is added as a production dependency for TypeScript formatting
+  - Black must be installed separately by users for Python formatting (not bundled)
+  - `writeGeneratedFiles()` is now async due to Prettier's async format API
+  - Formatting failures are gracefully handled with warnings (output still generated)
+  - TypeScript formatting uses: singleQuote, trailingComma: 'es5', printWidth: 100
+---
