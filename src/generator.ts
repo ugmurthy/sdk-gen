@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import type { ExtractedData } from './extractor.js';
-import { renderInterfaces, renderZodSchemas, renderClient, setSchemaMap } from './templates/index.js';
+import { renderInterfaces, renderZodSchemas, renderClient, renderPythonModels, renderPythonClient, setSchemaMap } from './templates/index.js';
 
 export interface GeneratorOptions {
   outputDir: string;
@@ -58,6 +58,53 @@ function generateIndexFile(hasSchemas: boolean, clientName: string): string {
   lines.push(`export { ${clientName}, ${clientName}Config } from './client.js';`);
   
   return lines.join('\n') + '\n';
+}
+
+export function generatePythonSDK(
+  data: ExtractedData,
+  clientName: string = 'ApiClient'
+): GeneratedFile[] {
+  setSchemaMap(data.schemas);
+  
+  const files: GeneratedFile[] = [];
+
+  if (data.schemas.length > 0) {
+    files.push({
+      path: 'models.py',
+      content: renderPythonModels(data.schemas),
+    });
+  }
+
+  files.push({
+    path: 'client.py',
+    content: renderPythonClient(data.operations, data.schemas, clientName),
+  });
+
+  files.push({
+    path: '__init__.py',
+    content: generatePythonInitFile(data.schemas.length > 0, clientName, data.schemas.map(s => s.name)),
+  });
+
+  return files;
+}
+
+function generatePythonInitFile(hasSchemas: boolean, clientName: string, schemaNames: string[]): string {
+  const lines: string[] = [];
+  
+  if (hasSchemas) {
+    lines.push(`from .models import ${schemaNames.join(', ')}`);
+  }
+  lines.push(`from .client import ${clientName}, ${clientName}Config`);
+  lines.push('');
+  
+  const exports = hasSchemas 
+    ? [...schemaNames, clientName, `${clientName}Config`]
+    : [clientName, `${clientName}Config`];
+  
+  lines.push(`__all__ = [${exports.map(e => `"${e}"`).join(', ')}]`);
+  lines.push('');
+  
+  return lines.join('\n');
 }
 
 export function writeGeneratedFiles(

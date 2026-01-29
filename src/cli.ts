@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { createInterface } from 'readline';
 import { parseOpenAPISpec } from './parser.js';
 import { extractAll } from './extractor.js';
-import { generateTypeScriptSDK, writeGeneratedFiles } from './generator.js';
+import { generateTypeScriptSDK, generatePythonSDK, writeGeneratedFiles } from './generator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -53,28 +53,26 @@ program
       const outputDir = resolve(options.output);
       console.log(`Generating ${options.lang} SDK to ${outputDir}`);
 
-      if (options.lang === 'ts') {
-        const files = generateTypeScriptSDK(extracted);
+      const files = options.lang === 'ts' 
+        ? generateTypeScriptSDK(extracted)
+        : generatePythonSDK(extracted);
 
-        const existingFiles = files.filter(f => existsSync(join(outputDir, f.path)));
+      const existingFiles = files.filter(f => existsSync(join(outputDir, f.path)));
+      
+      if (existingFiles.length > 0 && !options.force) {
+        console.log(`\nThe following files already exist:`);
+        existingFiles.forEach(f => console.log(`  - ${f.path}`));
         
-        if (existingFiles.length > 0 && !options.force) {
-          console.log(`\nThe following files already exist:`);
-          existingFiles.forEach(f => console.log(`  - ${f.path}`));
-          
-          const shouldOverwrite = await promptConfirmation('Overwrite existing files? (y/n): ');
-          if (!shouldOverwrite) {
-            console.log('Aborted.');
-            process.exit(0);
-          }
+        const shouldOverwrite = await promptConfirmation('Overwrite existing files? (y/n): ');
+        if (!shouldOverwrite) {
+          console.log('Aborted.');
+          process.exit(0);
         }
-
-        writeGeneratedFiles(files, outputDir, options.force || existingFiles.length > 0);
-        console.log(`\nSuccessfully generated TypeScript SDK in ${outputDir}`);
-      } else {
-        console.error('Python generation not yet implemented');
-        process.exit(1);
       }
+
+      writeGeneratedFiles(files, outputDir, options.force || existingFiles.length > 0);
+      const langName = options.lang === 'ts' ? 'TypeScript' : 'Python';
+      console.log(`\nSuccessfully generated ${langName} SDK in ${outputDir}`);
     } catch (error) {
       if (error instanceof Error) {
         console.error(`Error: ${error.message}`);
