@@ -72,7 +72,11 @@ export class {{clientName}} {
 
     const response = await this.client.{{lowerMethod}}{{#if requestBody}}<{{responseType}}>(url, params.body, config){{else}}<{{responseType}}>(url, config){{/if}};
 {{#if hasResponseSchema}}
+{{#if isListResponse}}
+    return response.data.map((item: unknown) => {{responseSchemaName}}Schema.parse(item));
+{{else}}
     return {{responseSchemaName}}Schema.parse(response.data);
+{{/if}}
 {{else}}
     return response.data;
 {{/if}}
