@@ -167,6 +167,10 @@ function generateTsConfig(): string {
 
 function generateTsReadme(options: PackageOptions, clientName: string, data: ExtractedData): string {
   const hasStreaming = data.operations.some(op => op.isStreaming);
+  const useGrouping = hasServiceGrouping();
+  const originalIds = getOriginalOperationIds(data);
+  const groupedOps = useGrouping ? groupOperationsByService(data.operations, originalIds) : null;
+  
   const nonStreamingOp = data.operations.find(op => !op.isStreaming);
   const streamingOp = data.operations.find(op => op.isStreaming);
 
@@ -192,9 +196,10 @@ const client = new ${clientName}({
 `;
 
   if (nonStreamingOp) {
+    const exampleCall = getMethodCallString(nonStreamingOp, groupedOps);
     readme += `
 // Example API call
-const response = await client.${nonStreamingOp.operationId}(/* params */);
+const response = await client.${exampleCall}(/* params */);
 `;
   }
 
@@ -202,12 +207,13 @@ const response = await client.${nonStreamingOp.operationId}(/* params */);
 `;
 
   if (hasStreaming && streamingOp) {
+    const streamingCall = getMethodCallString(streamingOp, groupedOps);
     readme += `
 ## Streaming
 
 \`\`\`typescript
 // Streaming example
-for await (const chunk of client.${streamingOp.operationId}(/* params */)) {
+for await (const chunk of client.${streamingCall}(/* params */)) {
   console.log(chunk);
 }
 \`\`\`
@@ -219,22 +225,20 @@ for await (const chunk of client.${streamingOp.operationId}(/* params */)) {
 
 `;
 
-  for (const op of data.operations) {
-    const params: string[] = [];
-    if (op.pathParameters.length > 0) {
-      params.push(...op.pathParameters.map(p => p.name));
+  if (useGrouping && groupedOps) {
+    for (const [serviceName, ops] of Object.entries(groupedOps)) {
+      readme += `### ${serviceName}\n\n`;
+      for (const op of ops) {
+        const params = getParamsList(op);
+        readme += `- \`${serviceName}.${op.operationId}(${params.join(', ')})\`${op.isStreaming ? ' - Streaming' : ''}\n`;
+      }
+      readme += '\n';
     }
-    if (op.queryParameters.length > 0) {
-      params.push('options?');
+  } else {
+    for (const op of data.operations) {
+      const params = getParamsList(op);
+      readme += `- \`${op.operationId}(${params.join(', ')})\`${op.isStreaming ? ' - Streaming' : ''}\n`;
     }
-    if (op.requestBody) {
-      params.push('body');
-    }
-    if (op.isStreaming) {
-      params.push('signal?');
-    }
-    
-    readme += `- \`${op.operationId}(${params.join(', ')})\`${op.isStreaming ? ' - Streaming' : ''}\n`;
   }
 
   readme += `
@@ -244,6 +248,40 @@ MIT
 `;
 
   return readme;
+}
+
+function getMethodCallString(
+  op: ExtractedOperation,
+  groupedOps: GroupedOperations | null
+): string {
+  if (!groupedOps) {
+    return op.operationId;
+  }
+  
+  for (const [serviceName, ops] of Object.entries(groupedOps)) {
+    const found = ops.find(o => o.operationId === op.operationId);
+    if (found) {
+      return `${serviceName}.${found.operationId}`;
+    }
+  }
+  return op.operationId;
+}
+
+function getParamsList(op: ExtractedOperation): string[] {
+  const params: string[] = [];
+  if (op.pathParameters.length > 0) {
+    params.push(...op.pathParameters.map(p => p.name));
+  }
+  if (op.queryParameters.length > 0) {
+    params.push('options?');
+  }
+  if (op.requestBody) {
+    params.push('body');
+  }
+  if (op.isStreaming) {
+    params.push('signal?');
+  }
+  return params;
 }
 
 function generateTsGitignore(): string {

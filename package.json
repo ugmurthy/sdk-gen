@@ -1,6 +1,6 @@
 {
-  "name": "sdk-gen",
-  "version": "1.0.3",
+  "name": "@ugm/sdk-gen",
+  "version": "1.0.4",
   "type": "module",
   "main": "dist/cli.js",
   "files": [
