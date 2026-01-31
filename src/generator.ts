@@ -2,7 +2,8 @@ import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { execSync } from 'child_process';
 import type { ExtractedData, ExtractedOperation } from './extractor.js';
-import { renderInterfaces, renderZodSchemas, renderClient, renderPythonModels, renderPythonClient, renderPythonStreamingClient, setSchemaMap } from './templates/index.js';
+import { renderInterfaces, renderZodSchemas, renderClient, renderGroupedClient, renderPythonModels, renderPythonClient, renderPythonStreamingClient, setSchemaMap } from './templates/index.js';
+import { hasServiceGrouping, groupOperationsByService, getOriginalOperationIds, type GroupedOperations } from './nameMapper.js';
 import prettier from 'prettier';
 
 export interface GeneratorOptions {
@@ -43,9 +44,19 @@ export function generateTypeScriptSDK(
     });
   }
 
+  // Check if service grouping is enabled
+  let clientContent: string;
+  if (hasServiceGrouping()) {
+    const originalIds = getOriginalOperationIds(data);
+    const groupedOps = groupOperationsByService(data.operations, originalIds);
+    clientContent = renderGroupedClient(groupedOps, data.schemas, clientName);
+  } else {
+    clientContent = renderClient(data.operations, data.schemas, clientName);
+  }
+
   files.push({
     path: 'client.ts',
-    content: renderClient(data.operations, data.schemas, clientName),
+    content: clientContent,
   });
 
   files.push({

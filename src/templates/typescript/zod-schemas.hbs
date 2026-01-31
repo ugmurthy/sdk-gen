@@ -4,7 +4,7 @@ import { z } from 'zod';
 {{#each schemas}}
 export const {{name}}Schema = z.object({
 {{#each properties}}
-  {{name}}: {{zodType}}{{#unless required}}.optional(){{/unless}},
+  {{name}}: {{{zodType}}}{{#unless required}}.optional(){{/unless}},
 {{/each}}
 });
 

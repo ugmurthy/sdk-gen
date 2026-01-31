@@ -8,7 +8,7 @@ export interface {{name}} {
   {{#if description}}
   /** {{description}} */
   {{/if}}
-  {{name}}{{#unless required}}?{{/unless}}: {{tsType}};
+  {{name}}{{#unless required}}?{{/unless}}: {{{tsType}}};
 {{/each}}
 }
 

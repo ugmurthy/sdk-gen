@@ -15,6 +15,7 @@
 - Package mode generates files in `src/` subdirectory with package.json, tsconfig.json, README.md, .gitignore at root
 - Use `generateTypeScriptPackageFiles()` for TS package mode, returns GeneratedFile[] with src/ prefix for source files
 - `writeGeneratedFiles()` creates subdirectories as needed using `dirname()` and `mkdirSync()`
+- Use `generatePythonPackageFiles()` for Python package mode; source files go in package-named dir (dashes to underscores)
 
 ---
 
@@ -146,4 +147,17 @@ Thread: https://ampcode.com/threads/T-019c077e-2e08-71bd-9525-248dc949510f
   - Package includes: package.json (name from --name flag), tsconfig.json (ES2020+/NodeNext), README.md, .gitignore
   - Fixed array response validation: use `isListResponse` flag in template to map over items instead of parse entire array
   - `writeGeneratedFiles()` needed update to create subdirectories with `dirname()` for nested paths like `src/types.ts`
+---
+
+## 2026-01-29 - US-012
+Thread: https://ampcode.com/threads/T-019c0788-f22a-733d-8b89-196f7c9ffc0f
+- Implemented publishable Python package generation
+- Files changed: src/generator.ts, src/cli.ts
+- **Learnings for future iterations:**
+  - Added `generatePythonPackageFiles()` that wraps SDK files in package-named directory (dashes replaced with underscores)
+  - Python package includes: pyproject.toml, setup.py (backwards compat), README.md, .gitignore
+  - pyproject.toml uses modern PEP 621 format with setuptools as build backend
+  - Streaming ops add httpx dependency automatically to dependencies list
+  - Package dir uses underscores (e.g., `my_sdk`) while package name uses dashes (e.g., `my-sdk`)
+  - Generated code passes `mypy --strict` type checking
 ---

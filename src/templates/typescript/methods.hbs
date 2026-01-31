@@ -16,20 +16,20 @@
 {{#if requestBody}}
  * @param body - Request body
 {{/if}}
- * @returns {{responseType}}
+ * @returns {{{responseType}}}
  */
 {{/if}}
 async {{operationId}}({{#if hasParams}}params: {
 {{#each pathParameters}}
-  {{name}}: {{tsType}};
+  {{name}}: {{{tsType}}};
 {{/each}}
 {{#each queryParameters}}
-  {{name}}{{#unless required}}?{{/unless}}: {{tsType}};
+  {{name}}{{#unless required}}?{{/unless}}: {{{tsType}}};
 {{/each}}
 {{#if requestBody}}
-  body{{#unless requestBody.required}}?{{/unless}}: {{requestBody.tsType}};
+  body{{#unless requestBody.required}}?{{/unless}}: {{{requestBody.tsType}}};
 {{/if}}
-}{{/if}}): Promise<{{responseType}}> {
+}{{/if}}): Promise<{{{responseType}}}> {
   let url = '{{path}}';
 {{#each pathParameters}}
   url = url.replace('{ {{~name~}} }', encodeURIComponent(String(params.{{name}})));
@@ -45,7 +45,7 @@ async {{operationId}}({{#if hasParams}}params: {
 {{/if}}
   };
 
-  const response = await this.client.{{lowerMethod}}{{#if requestBody}}<{{responseType}}>(url, params.body, config){{else}}<{{responseType}}>(url, config){{/if}};
+  const response = await this.client.{{lowerMethod}}{{#if requestBody}}<{{{responseType}}}>(url, params.body, config){{else}}<{{{responseType}}}>(url, config){{/if}};
 {{#if hasResponseSchema}}
   return {{responseSchemaName}}Schema.parse(response.data);
 {{else}}

@@ -66,6 +66,11 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+function sanitizeOperationId(id: string): string {
+  // Convert kebab-case and other invalid chars to camelCase
+  return id.replace(/[^a-zA-Z0-9]+(.)?/g, (_, char) => char ? char.toUpperCase() : '');
+}
+
 function getTypeFromSchema(schema: SchemaObject | ReferenceObject | undefined): string {
   if (!schema) return 'unknown';
   if (isReferenceObject(schema)) {
@@ -221,7 +226,7 @@ export function extractOperations(spec: OpenAPISpec): ExtractedOperation[] {
       const operation = pathItem[method];
       if (!operation) continue;
 
-      const operationId = operation.operationId || deriveOperationId(method, path);
+      const operationId = sanitizeOperationId(operation.operationId || deriveOperationId(method, path));
       const { pathParameters, queryParameters } = extractParameters(
         operation.parameters as (ParameterObject | ReferenceObject)[] | undefined,
         pathParams

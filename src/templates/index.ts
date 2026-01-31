@@ -341,6 +341,20 @@ export function renderZodSchemas(schemas: ExtractedSchema[]): string {
   return template({ schemas: prepareSchemas(schemas) });
 }
 
+export interface ServiceGroup {
+  serviceName: string;
+  propertyName: string;
+  className: string;
+  operations: TemplateOperation[];
+}
+
+function toPascalCase(str: string): string {
+  return str
+    .split(/[-_\s]+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
+}
+
 export function renderClient(
   operations: ExtractedOperation[],
   schemas: ExtractedSchema[],
@@ -351,6 +365,42 @@ export function renderClient(
   const schemaNames = schemas.map(s => s.name);
   return template({
     operations: prepareOperations(operations, schemaNames),
+    clientName,
+    schemaNames,
+    hasSchemas: schemaNames.length > 0,
+  });
+}
+
+export function renderGroupedClient(
+  groupedOps: { [serviceName: string]: ExtractedOperation[] },
+  schemas: ExtractedSchema[],
+  clientName: string = 'ApiClient'
+): string {
+  setSchemaMap(schemas);
+  const template = loadTemplate('typescript', 'client-grouped');
+  const schemaNames = schemas.map(s => s.name);
+
+  const services: ServiceGroup[] = [];
+  let ungroupedOperations: TemplateOperation[] = [];
+
+  for (const [serviceName, ops] of Object.entries(groupedOps)) {
+    const preparedOps = prepareOperations(ops, schemaNames);
+    
+    if (serviceName === '_default') {
+      ungroupedOperations = preparedOps;
+    } else {
+      services.push({
+        serviceName,
+        propertyName: serviceName,
+        className: `${toPascalCase(serviceName)}Service`,
+        operations: preparedOps,
+      });
+    }
+  }
+
+  return template({
+    services,
+    ungroupedOperations,
     clientName,
     schemaNames,
     hasSchemas: schemaNames.length > 0,

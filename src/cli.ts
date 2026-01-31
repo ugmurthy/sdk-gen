@@ -7,6 +7,7 @@ import { createInterface } from 'readline';
 import { parseOpenAPISpec } from './parser.js';
 import { extractAll } from './extractor.js';
 import { generateTypeScriptSDK, generatePythonSDK, generateTypeScriptPackageFiles, generatePythonPackageFiles, writeGeneratedFiles } from './generator.js';
+import { loadMappings, generateDefaultMappings, applyMappings } from './nameMapper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -27,7 +28,9 @@ program
   .option('--package', 'Generate as publishable package')
   .option('--name <name>', 'Package name (required with --package)')
   .option('--force', 'Overwrite existing files without prompting')
-  .action(async (specFile: string, options: { lang: string; output: string; package?: boolean; name?: string; force?: boolean }) => {
+  .option('--fix-nullable', 'Convert OpenAPI 3.1-style nullable types to 3.0 format')
+  .option('--mappings <file>', 'JSON file with name mappings for operations and schemas')
+  .action(async (specFile: string, options: { lang: string; output: string; package?: boolean; name?: string; force?: boolean; fixNullable?: boolean; mappings?: string }) => {
     if (options.lang !== 'ts' && options.lang !== 'python') {
       console.error('Error: --lang must be either "ts" or "python"');
       process.exit(1);
@@ -39,11 +42,28 @@ program
     }
 
     try {
-      const spec = await parseOpenAPISpec(specFile);
+      const spec = await parseOpenAPISpec(specFile, { fixNullable: options.fixNullable });
       console.log(`Parsed OpenAPI ${spec.openapi} specification: ${spec.info.title} v${spec.info.version}`);
 
-      const extracted = extractAll(spec);
-      console.log(`Found ${extracted.operations.length} operations and ${extracted.schemas.length} schemas`);
+      const rawExtracted = extractAll(spec);
+      console.log(`Found ${rawExtracted.operations.length} operations and ${rawExtracted.schemas.length} schemas`);
+
+      // Handle name mappings
+      let extracted = rawExtracted;
+      if (options.mappings) {
+        const mappingsPath = resolve(options.mappings);
+        const mappingsExist = loadMappings(mappingsPath);
+        
+        if (!mappingsExist) {
+          // Generate default mappings file and exit
+          generateDefaultMappings(rawExtracted, mappingsPath);
+          process.exit(0);
+        }
+        
+        // Apply mappings to extracted data
+        extracted = applyMappings(rawExtracted);
+        console.log(`Applied name mappings from ${mappingsPath}`);
+      }
       
       const streamingOps = extracted.operations.filter(op => op.isStreaming);
       if (streamingOps.length > 0) {
