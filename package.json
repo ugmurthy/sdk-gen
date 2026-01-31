@@ -24,8 +24,9 @@
     "typescript",
     "python"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "U G Murthy <ugmurthy@gmail.com>",
+  "homepage": "https://github.com/ugmurthy/sdk-gen",
+  "license": "MIT",
   "description": "CLI tool that generates fully-typed SDK clients from OpenAPI specifications",
   "dependencies": {
     "@apidevtools/swagger-parser": "^12.1.0",
