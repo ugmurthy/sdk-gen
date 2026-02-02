@@ -79,16 +79,22 @@ function isOperationMapping(value: string | OperationMapping): value is Operatio
 }
 
 /**
+ * Convert kebab-case or other invalid identifiers to valid camelCase.
+ */
+function toCamelCase(str: string): string {
+  return str.replace(/[^a-zA-Z0-9]+(.)?/g, (_, char) => char ? char.toUpperCase() : '');
+}
+
+/**
  * Get mapped operation name, or original if no mapping exists.
  * Returns the method name for grouped operations.
+ * Always sanitizes the result to ensure valid identifier.
  */
 export function mapOperationName(name: string): string {
   const mapping = mappings.operations?.[name];
   if (!mapping) return name;
-  if (isOperationMapping(mapping)) {
-    return mapping.method;
-  }
-  return mapping;
+  const rawName = isOperationMapping(mapping) ? mapping.method : mapping;
+  return toCamelCase(rawName);
 }
 
 /**
