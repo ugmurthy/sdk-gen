@@ -29,7 +29,8 @@ async {{operationId}}({{#if hasParams}}params: {
 {{#if requestBody}}
   body{{#unless requestBody.required}}?{{/unless}}: {{{requestBody.tsType}}};
 {{/if}}
-}{{/if}}): Promise<{{{responseType}}}> {
+  signal?: AbortSignal;
+}{{else}}options?: { signal?: AbortSignal }{{/if}}): Promise<{{{responseType}}}> {
   let url = '{{path}}';
 {{#each pathParameters}}
   url = url.replace('{ {{~name~}} }', encodeURIComponent(String(params.{{name}})));
@@ -44,6 +45,11 @@ async {{operationId}}({{#if hasParams}}params: {
     },
 {{/if}}
   };
+{{#if hasParams}}
+  if (params.signal) { config.signal = params.signal; }
+{{else}}
+  if (options?.signal) { config.signal = options.signal; }
+{{/if}}
 
   const response = await this.client.{{lowerMethod}}{{#if requestBody}}<{{{responseType}}}>(url, params.body, config){{else}}<{{{responseType}}}>(url, config){{/if}};
 {{#if hasResponseSchema}}

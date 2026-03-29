@@ -1,10 +1,156 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { execSync } from 'child_process';
-import type { ExtractedData, ExtractedOperation } from './extractor.js';
+import type { OpenAPIV3, OpenAPIV3_1 } from 'openapi-types';
+import type { ExtractedData, ExtractedOperation, ExtractedSchema } from './extractor.js';
 import { renderInterfaces, renderZodSchemas, renderClient, renderGroupedClient, renderPythonModels, renderPythonClient, renderPythonStreamingClient, setSchemaMap } from './templates/index.js';
 import { hasServiceGrouping, groupOperationsByService, getOriginalOperationIds, type GroupedOperations } from './nameMapper.js';
 import prettier from 'prettier';
+
+type SchemaObject = OpenAPIV3.SchemaObject | OpenAPIV3_1.SchemaObject;
+type ReferenceObject = OpenAPIV3.ReferenceObject | OpenAPIV3_1.ReferenceObject;
+
+function isReferenceObject(obj: unknown): obj is ReferenceObject {
+  return typeof obj === 'object' && obj !== null && '$ref' in obj;
+}
+
+function formatSchemaType(schema: SchemaObject | ReferenceObject | undefined, schemas: ExtractedSchema[]): string {
+  if (!schema) return 'unknown';
+  if (isReferenceObject(schema)) {
+    return schema.$ref.split('/').pop() || 'unknown';
+  }
+  if (schema.type === 'array') {
+    const items = (schema as OpenAPIV3.ArraySchemaObject).items as SchemaObject | ReferenceObject | undefined;
+    return `array of ${formatSchemaType(items, schemas)}`;
+  }
+  let typeStr = (schema.type as string) || 'object';
+  if (schema.format) {
+    typeStr += ` (${schema.format})`;
+  }
+  if (schema.enum) {
+    typeStr += ` enum: [${schema.enum.map(v => `\`${v}\``).join(', ')}]`;
+  }
+  return typeStr;
+}
+
+function resolveSchema(schema: SchemaObject | ReferenceObject | undefined, schemas: ExtractedSchema[]): SchemaObject | undefined {
+  if (!schema) return undefined;
+  if (isReferenceObject(schema)) {
+    const refName = schema.$ref.split('/').pop();
+    const found = schemas.find(s => s.name === refName);
+    return found?.schema;
+  }
+  return schema as SchemaObject;
+}
+
+function renderSchemaTable(
+  schema: SchemaObject | ReferenceObject | undefined,
+  schemas: ExtractedSchema[],
+  indent: string = ''
+): string {
+  if (!schema) return '';
+
+  const resolved = resolveSchema(schema, schemas);
+  if (!resolved) return '';
+
+  let properties: Record<string, SchemaObject | ReferenceObject> | undefined;
+  let requiredFields: string[] = [];
+
+  if (resolved.type === 'object' || resolved.properties) {
+    properties = resolved.properties as Record<string, SchemaObject | ReferenceObject> | undefined;
+    requiredFields = (resolved.required as string[]) || [];
+  } else if (resolved.type === 'array') {
+    const items = (resolved as OpenAPIV3.ArraySchemaObject).items as SchemaObject | ReferenceObject | undefined;
+    const resolvedItems = resolveSchema(items, schemas);
+    if (resolvedItems?.properties) {
+      properties = resolvedItems.properties as Record<string, SchemaObject | ReferenceObject> | undefined;
+      requiredFields = (resolvedItems.required as string[]) || [];
+    }
+  }
+
+  if (!properties || Object.keys(properties).length === 0) return '';
+
+  let table = `${indent}| Property | Type | Required | Description |\n`;
+  table += `${indent}|----------|------|----------|-------------|\n`;
+
+  for (const [propName, propSchema] of Object.entries(properties)) {
+    const typeStr = formatSchemaType(propSchema, schemas);
+    const isRequired = requiredFields.includes(propName);
+    const desc = !isReferenceObject(propSchema) ? ((propSchema as SchemaObject).description || '') : '';
+    table += `${indent}| \`${propName}\` | ${typeStr} | ${isRequired ? 'Yes' : 'No'} | ${desc.replace(/\|/g, '\\|').replace(/\n/g, ' ')} |\n`;
+  }
+
+  return table;
+}
+
+function renderOperationDetails(
+  op: ExtractedOperation,
+  schemas: ExtractedSchema[],
+  methodPrefix: string
+): string {
+  const params = getParamsList(op);
+  let block = `#### \`${methodPrefix}${op.operationId}(${params.join(', ')})\`\n\n`;
+
+  const desc = op.description || op.summary;
+  if (desc) {
+    block += `${desc}\n\n`;
+  }
+
+  if (op.pathParameters.length > 0) {
+    block += `**Path Parameters:**\n\n`;
+    block += `| Parameter | Type | Required | Description |\n`;
+    block += `|-----------|------|----------|-------------|\n`;
+    for (const p of op.pathParameters) {
+      const typeStr = formatSchemaType(p.schema, schemas);
+      block += `| \`${p.name}\` | ${typeStr} | ${p.required ? 'Yes' : 'No'} | |\n`;
+    }
+    block += '\n';
+  }
+
+  if (op.queryParameters.length > 0) {
+    block += `**Query Parameters:**\n\n`;
+    block += `| Parameter | Type | Required | Description |\n`;
+    block += `|-----------|------|----------|-------------|\n`;
+    for (const p of op.queryParameters) {
+      const typeStr = formatSchemaType(p.schema, schemas);
+      block += `| \`${p.name}\` | ${typeStr} | ${p.required ? 'Yes' : 'No'} | |\n`;
+    }
+    block += '\n';
+  }
+
+  if (op.requestBody) {
+    const refName = isReferenceObject(op.requestBody.schema)
+      ? op.requestBody.schema.$ref.split('/').pop()
+      : null;
+    block += `**Request Body:**${refName ? ` \`${refName}\`` : ''}\n\n`;
+    const table = renderSchemaTable(op.requestBody.schema, schemas);
+    if (table) {
+      block += table + '\n';
+    }
+  }
+
+  if (op.responseSchema) {
+    const refName = isReferenceObject(op.responseSchema)
+      ? op.responseSchema.$ref.split('/').pop()
+      : null;
+    block += `**Response:**${refName ? ` \`${refName}\`` : ''}\n\n`;
+    const table = renderSchemaTable(op.responseSchema, schemas);
+    if (table) {
+      block += table + '\n';
+    }
+  }
+
+  if (!op.isStreaming) {
+    block += `**Cancellation:** Pass an \`AbortSignal\` via \`${
+      op.pathParameters.length > 0 || op.queryParameters.length > 0 || op.requestBody
+        ? 'params.signal'
+        : 'options.signal'
+    }\` to cancel the request.\n\n`;
+  }
+
+  block += `---\n\n`;
+  return block;
+}
 
 export interface GeneratorOptions {
   outputDir: string;
@@ -241,6 +387,21 @@ for await (const chunk of client.${streamingCall}(/* params */)) {
     }
   }
 
+  readme += `\n## API Reference\n\n`;
+
+  if (useGrouping && groupedOps) {
+    for (const [serviceName, ops] of Object.entries(groupedOps)) {
+      readme += `### ${serviceName}\n\n`;
+      for (const op of ops) {
+        readme += renderOperationDetails(op, data.schemas, `${serviceName}.`);
+      }
+    }
+  } else {
+    for (const op of data.operations) {
+      readme += renderOperationDetails(op, data.schemas, '');
+    }
+  }
+
   readme += `
 ## License
 
@@ -269,6 +430,7 @@ function getMethodCallString(
 
 function getParamsList(op: ExtractedOperation): string[] {
   const params: string[] = [];
+  const hasParams = op.pathParameters.length > 0 || op.queryParameters.length > 0 || !!op.requestBody;
   if (op.pathParameters.length > 0) {
     params.push(...op.pathParameters.map(p => p.name));
   }
@@ -280,6 +442,8 @@ function getParamsList(op: ExtractedOperation): string[] {
   }
   if (op.isStreaming) {
     params.push('signal?');
+  } else if (!hasParams) {
+    params.push('options?');
   }
   return params;
 }
@@ -476,6 +640,76 @@ asyncio.run(main())
     }
     
     readme += `- \`${snakeName}(${params.join(', ')})\`${op.isStreaming ? ' - Streaming (async)' : ''}\n`;
+  }
+
+  readme += `\n## API Reference\n\n`;
+
+  for (const op of data.operations) {
+    const snakeName = toSnakeCase(op.operationId);
+    const pyParams: string[] = [];
+    if (op.pathParameters.length > 0) {
+      pyParams.push(...op.pathParameters.map(p => toSnakeCase(p.name)));
+    }
+    if (op.requestBody) {
+      pyParams.push('body');
+    }
+    if (op.queryParameters.length > 0) {
+      pyParams.push('**kwargs');
+    }
+
+    let block = `#### \`${snakeName}(${pyParams.join(', ')})\`\n\n`;
+
+    const desc = op.description || op.summary;
+    if (desc) {
+      block += `${desc}\n\n`;
+    }
+
+    if (op.pathParameters.length > 0) {
+      block += `**Path Parameters:**\n\n`;
+      block += `| Parameter | Type | Required | Description |\n`;
+      block += `|-----------|------|----------|-------------|\n`;
+      for (const p of op.pathParameters) {
+        const typeStr = formatSchemaType(p.schema, data.schemas);
+        block += `| \`${toSnakeCase(p.name)}\` | ${typeStr} | ${p.required ? 'Yes' : 'No'} | |\n`;
+      }
+      block += '\n';
+    }
+
+    if (op.queryParameters.length > 0) {
+      block += `**Query Parameters:**\n\n`;
+      block += `| Parameter | Type | Required | Description |\n`;
+      block += `|-----------|------|----------|-------------|\n`;
+      for (const p of op.queryParameters) {
+        const typeStr = formatSchemaType(p.schema, data.schemas);
+        block += `| \`${toSnakeCase(p.name)}\` | ${typeStr} | ${p.required ? 'Yes' : 'No'} | |\n`;
+      }
+      block += '\n';
+    }
+
+    if (op.requestBody) {
+      const refName = isReferenceObject(op.requestBody.schema)
+        ? op.requestBody.schema.$ref.split('/').pop()
+        : null;
+      block += `**Request Body:**${refName ? ` \`${refName}\`` : ''}\n\n`;
+      const table = renderSchemaTable(op.requestBody.schema, data.schemas);
+      if (table) {
+        block += table + '\n';
+      }
+    }
+
+    if (op.responseSchema) {
+      const refName = isReferenceObject(op.responseSchema)
+        ? op.responseSchema.$ref.split('/').pop()
+        : null;
+      block += `**Response:**${refName ? ` \`${refName}\`` : ''}\n\n`;
+      const table = renderSchemaTable(op.responseSchema, data.schemas);
+      if (table) {
+        block += table + '\n';
+      }
+    }
+
+    block += `---\n\n`;
+    readme += block;
   }
 
   readme += `
