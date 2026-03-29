@@ -7,13 +7,24 @@ CLI tool that generates fully-typed SDK clients from OpenAPI specifications.
 - Generates **TypeScript** and **Python** SDK clients
 - Supports OpenAPI 3.0 specifications (JSON or YAML)
 - Streaming endpoint detection and support
+- **AbortSignal support** — all generated methods accept an optional `AbortSignal` for request cancellation
 - Optional publishable package generation with proper package files
 - **Name mappings** for customizing operation/schema names and grouping operations into services
 - **OpenAPI 3.1 nullable fix** for compatibility with 3.0-style code generators
 
 ## Installation
 
+### From npm
+
 ```bash
+npm install @ugm/sdk-gen
+```
+
+### From source
+
+```bash
+git clone https://github.com/ugmurthy/sdk-gen.git
+cd sdk-gen
 npm install
 npm run build
 ```
@@ -148,6 +159,25 @@ const user = await client.getApiV2UsersById({ id: '123' });
 
 // With service grouping
 const user = await client.users.get({ id: '123' });
+```
+
+## AbortSignal Support
+
+All generated TypeScript methods accept an optional `AbortSignal` for request cancellation:
+
+```typescript
+const controller = new AbortController();
+
+// Non-streaming — pass signal via options
+const user = await client.users.get({ id: '123' }, { signal: controller.signal });
+
+// Streaming — pass signal as last argument
+for await (const chunk of client.events.stream({ signal: controller.signal })) {
+  console.log(chunk);
+}
+
+// Cancel the request
+controller.abort();
 ```
 
 ## Example with test fixture
